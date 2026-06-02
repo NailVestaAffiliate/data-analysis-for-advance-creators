@@ -124,10 +124,6 @@ with st.expander("查看 广达出单 名单（出单但不在深度名单）"):
     st.write(sorted(guang_orders))
 
 # ---- 下载 ----
-detail = active_df[["Creator username", "Affiliate GMV"]].copy()
-detail["类别"] = detail["_uname" ].apply(
-    lambda u: "深达出单" if u in deep_set else "广达出单"
-) if "_uname" in active_df.columns else None
 detail = active_df.assign(
     分类=active_df["_uname"].apply(lambda u: "深达出单" if u in deep_set else "广达出单")
 )[["Creator username", "Affiliate GMV", "分类"]]
