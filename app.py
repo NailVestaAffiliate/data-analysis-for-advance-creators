@@ -116,6 +116,47 @@ st.caption(
     f"深度达人名单去重后共 {len(deep_set)} 位；Creator List 中 Affiliate GMV ≠ 0 的达人共 {total_active} 位。"
 )
 
+# ---- 出单达人 Top 10（按 GMV）----
+st.divider()
+st.subheader("🏆 出单达人 Top 10（按 Affiliate GMV）")
+
+# 同一达人若有多行，先按 username 聚合 GMV，再降序取前 10
+gmv_by_user = active_df.groupby("_uname", as_index=False)["_gmv"].sum()
+gmv_by_user["分类"] = gmv_by_user["_uname"].apply(
+    lambda u: "深达" if u in deep_set else "广达"
+)
+gmv_by_user = gmv_by_user.sort_values("_gmv", ascending=False).reset_index(drop=True)
+
+TOP_N = 10
+top_n = gmv_by_user.head(TOP_N).copy()
+top_n.insert(0, "排名", range(1, len(top_n) + 1))
+
+total_gmv = float(cre_df["_gmv"].sum())          # 全部 Affiliate GMV
+top_gmv = float(top_n["_gmv"].sum())             # Top10 合计 GMV
+n_top = len(top_n)
+top_deep = int((top_n["分类"] == "深达").sum())   # Top10 中深达数量
+
+pct_top_in_top = top_deep / n_top * 100 if n_top else 0          # 深达 ÷ Top10
+pct_top_of_deep = top_deep / n_deep * 100 if n_deep else 0       # 深达 ÷ 全部深达出单
+pct_top_gmv = top_gmv / total_gmv * 100 if total_gmv else 0      # Top10 GMV ÷ 总 GMV
+
+# 表格（用归一化后的小写 username 展示，与下方名单口径一致）
+show_top = top_n.rename(
+    columns={"_uname": "Creator username", "_gmv": "Affiliate GMV"}
+)[["排名", "Creator username", "Affiliate GMV", "分类"]]
+st.table(show_top)
+
+t1, t2, t3 = st.columns(3)
+t1.metric("Top10 中深达", f"{top_deep}/{n_top}", f"{pct_top_in_top:.1f}%")
+t2.metric("占全部深达出单", f"{pct_top_of_deep:.1f}%")
+t3.metric("Top10 GMV 占总 GMV", f"{pct_top_gmv:.1f}%")
+
+st.caption(
+    f"Top {n_top} 中深达 {top_deep} 位，占 Top{n_top} 的 {pct_top_in_top:.1f}%，"
+    f"占全部深达出单（{n_deep}）的 {pct_top_of_deep:.1f}%；"
+    f"Top{n_top} 合计 GMV {top_gmv:,.0f}，占总 GMV（{total_gmv:,.0f}）的 {pct_top_gmv:.1f}%。"
+)
+
 # ---- 明细 ----
 with st.expander("查看 深达出单 名单"):
     st.write(sorted(deep_orders))
