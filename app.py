@@ -28,7 +28,9 @@ def norm_username(u):
     if pd.isna(u):
         return None
     s = str(u).strip().lower()
-    return s or None
+    if s in ("", "nan", "none", "--", "-"):
+        return None
+    return s
 
 
 def read_table(uploaded):
@@ -210,8 +212,42 @@ def group_row(label, sub):
 rows = [
     group_row("深达", user_agg[user_agg["分类"] == "深达"]),
     group_row("广达", user_agg[user_agg["分类"] == "广达"]),
-    group_row("合计", user_agg),
 ]
+
+# 未归类：有 GMV 但无 username 的行，无法判定深达/广达。
+# 用"平台总额 − 可归类额"反推，确保与后台总额完全对账。
+classified_gmv = float(user_agg["_gmv"].sum())
+unclassified_gmv = max(total_gmv - classified_gmv, 0.0)
+unclassified_mask = (cre_df["_gmv"] != 0) & (cre_df["_uname"].isna())
+unclassified_n = int(unclassified_mask.sum())
+
+if unclassified_gmv > 0.005 or unclassified_n > 0:
+    urow = {
+        "类别": "未归类（无 username）",
+        "出单人数": unclassified_n,
+        "总GMV": f"{unclassified_gmv:,.2f}",
+        "GMV占比": f"{unclassified_gmv / total_gmv * 100:.1f}%" if total_gmv else "—",
+        "人均GMV": "—",
+    }
+    if order_col is not None:
+        urow["总出单数"] = f"{float(cre_df.loc[unclassified_mask, '_orders'].sum()):,.0f}"
+        urow["人均出单"] = "—"
+    rows.append(urow)
+
+# 合计 = 平台总额（对齐后台），占比 100%
+trow = {
+    "类别": "合计",
+    "出单人数": len(user_agg) + unclassified_n,
+    "总GMV": f"{total_gmv:,.2f}",
+    "GMV占比": "100.0%",
+    "人均GMV": "",
+}
+if order_col is not None:
+    tot_orders = float(user_agg["_orders"].sum()) + float(cre_df.loc[unclassified_mask, "_orders"].sum())
+    trow["总出单数"] = f"{tot_orders:,.0f}"
+    trow["人均出单"] = ""
+rows.append(trow)
+
 metrics_df = pd.DataFrame(rows)
 st.table(metrics_df)
 
@@ -224,11 +260,15 @@ g1.metric("深达 GMV", f"{deep_gmv:,.2f}",
 g2.metric("广达 GMV", f"{guang_gmv:,.2f}",
           f"{guang_gmv / total_gmv * 100:.1f}%" if total_gmv else "—")
 
+recon = (
+    f"总 GMV {total_gmv:,.2f}（对齐后台）＝ 可归类 {classified_gmv:,.2f} "
+    f"＋ 未归类（无 username）{unclassified_gmv:,.2f}。"
+)
 if order_col is not None:
-    st.caption(f"人均出单基于列「{order_col}」计算。")
+    st.caption(recon + f" 人均出单基于列「{order_col}」计算。")
 else:
     st.caption(
-        "⚠️ 未在 Creator List 中找到出单数/订单数列，"
+        recon + " ⚠️ 未在 Creator List 中找到出单数/订单数列，"
         "「人均出单」已省略。如需此指标，请告诉我对应的列名。"
     )
 
