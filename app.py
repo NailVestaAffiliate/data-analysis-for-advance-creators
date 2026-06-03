@@ -39,6 +39,17 @@ def read_table(uploaded):
     return pd.read_excel(uploaded)
 
 
+def to_number(series):
+    """把可能带 $ ￥ 千分位逗号 空格的金额/数量列转成数字。
+    例：'$365.84' -> 365.84，'1,234.56' -> 1234.56，'(12)' -> -12。
+    纯数字列也安全（原样转换）。无法解析的置 0。
+    """
+    s = series.astype(str).str.strip()
+    s = s.str.replace(r"^\((.*)\)$", r"-\1", regex=True)   # 会计负数 (12) -> -12
+    s = s.str.replace(r"[,，$￥\s]", "", regex=True)        # 去符号/千分位/空格
+    return pd.to_numeric(s, errors="coerce").fillna(0)
+
+
 with st.sidebar:
     st.header("📂 上传文件")
     deep_file = st.file_uploader(
@@ -74,7 +85,7 @@ if "Creator username" not in cre_df.columns or "Affiliate GMV" not in cre_df.col
     st.stop()
 
 cre_df["_uname"] = cre_df["Creator username"].apply(norm_username)
-cre_df["_gmv"] = pd.to_numeric(cre_df["Affiliate GMV"], errors="coerce").fillna(0)
+cre_df["_gmv"] = to_number(cre_df["Affiliate GMV"])
 active_df = cre_df[(cre_df["_gmv"] != 0) & (cre_df["_uname"].notna())]
 active_set = set(active_df["_uname"])
 
@@ -151,7 +162,7 @@ t2.metric("Top10 GMV 占总 GMV", f"{pct_top_gmv:.1f}%")
 
 st.caption(
     f"Top {n_top} 中深达 {top_deep} 位，占 Top{n_top} 的 {pct_top_in_top:.1f}%；"
-    f"Top{n_top} 合计 GMV {top_gmv:,.0f}，占总 GMV（{total_gmv:,.0f}）的 {pct_top_gmv:.1f}%。"
+    f"Top{n_top} 合计 GMV {top_gmv:,.2f}，占总 GMV（{total_gmv:,.2f}）的 {pct_top_gmv:.1f}%。"
 )
 
 # ---- 人均指标 & 深达 vs 广达 GMV ----
@@ -169,10 +180,7 @@ for col in cre_df.columns:
 # 每位出单达人聚合：GMV（复用前面已算的 gmv_by_user），按需并入出单数
 user_agg = gmv_by_user.copy()  # 含 _uname, _gmv, 分类
 if order_col is not None:
-    cre_df["_orders"] = pd.to_numeric(
-        cre_df[order_col].astype(str).str.replace(r"[,，$￥]", "", regex=True),
-        errors="coerce",
-    ).fillna(0)
+    cre_df["_orders"] = to_number(cre_df[order_col])
     orders_by_user = (
         cre_df[(cre_df["_gmv"] != 0) & (cre_df["_uname"].notna())]
         .groupby("_uname", as_index=False)["_orders"].sum()
@@ -188,9 +196,9 @@ def group_row(label, sub):
     row = {
         "类别": label,
         "出单人数": n,
-        "总GMV": f"{gmv:,.0f}",
+        "总GMV": f"{gmv:,.2f}",
         "GMV占比": f"{pct:.1f}%",
-        "人均GMV": f"{gmv / n:,.0f}" if n else "—",
+        "人均GMV": f"{gmv / n:,.2f}" if n else "—",
     }
     if order_col is not None:
         orders = float(sub["_orders"].sum())
@@ -211,9 +219,9 @@ st.table(metrics_df)
 deep_gmv = float(user_agg.loc[user_agg["分类"] == "深达", "_gmv"].sum())
 guang_gmv = float(user_agg.loc[user_agg["分类"] == "广达", "_gmv"].sum())
 g1, g2 = st.columns(2)
-g1.metric("深达 GMV", f"{deep_gmv:,.0f}",
+g1.metric("深达 GMV", f"{deep_gmv:,.2f}",
           f"{deep_gmv / total_gmv * 100:.1f}%" if total_gmv else "—")
-g2.metric("广达 GMV", f"{guang_gmv:,.0f}",
+g2.metric("广达 GMV", f"{guang_gmv:,.2f}",
           f"{guang_gmv / total_gmv * 100:.1f}%" if total_gmv else "—")
 
 if order_col is not None:
