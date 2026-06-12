@@ -956,7 +956,12 @@ def render_shen():
             "<div class='step'><b>⑦ 看廣達日報</b><br>從日報分析中找出當日問題在哪、找出優化點。</div>"
 
             "<div class='step'><b>⑧ 評估寄甲冊</b><br>"
-            "看哪些深達可以寄甲冊；<b>有甲冊去發布視頻，轉化率會特別好</b>。</div>",
+            "看哪些深達可以寄甲冊；<b>有甲冊去發布視頻，轉化率會特別好</b>。</div>"
+
+            "<div class='step'><b>⑨ Approve Shopify 達人</b><br>"
+            "到 Shopify 後台審批 affiliate 達人申請。<br>"
+            "<a href='https://admin.shopify.com/store/wkb1va-ze/apps/affliate-by-secomapp/admin/affiliates?page=1&page_size=10' "
+            "target='_blank'>開啟 Shopify Affiliates 後台 ↗</a></div>",
             unsafe_allow_html=True,
         )
 
